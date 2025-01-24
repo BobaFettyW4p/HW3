@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.5)
+project(HW3)
+set(CMAKE_CXX_STANDARD 20)
+add_executable(HelloWorldStaticConstruction HW3-2.cpp)
+add_executable(NthPowerFunctor HW3-3.cpp)
+add_executable(AnimalGame HW3-4.cpp)
