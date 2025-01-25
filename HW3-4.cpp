@@ -38,7 +38,7 @@ public:
  * @brief an implementation of the Node class, utilized to generate the question tree
  * 
  * Each node contains a string question, that is used to generate the questions asked to the user while playing the game
- * Each node has a yes child and a no child, corresponding to the responses to the question
+ * Each node has at most one yes child and at most one no child, corresponding to the responses to the question
  * Once the user has traversed the tree to a leaf node, it will attempt to guess the animal
  */
 class Node {
@@ -55,17 +55,27 @@ public:
 };
 
 /**
- * @class AnimalGame
- * @brief the AnimalGame class utilizes the Node and DynamicAnimal classes to perform operations within the game
+ * @class AnimalTree
+ * @brief This class is responsible for generating the question tree that forms the basis for the game's logic
+ * 
+ * Making this its own separate class instead of the part of the AnimalGame class enables us to use object lifetimes to reset the memory of the game
+ * Under Resource Acquisition Is Initialization, the lifetime of any instance of this class will be controlled by the AnimalGame class
+ * When an instance of the AnimalGame class is initialized, it will initialize an instance of this class as well
  */
-class AnimalGame {
+class AnimalTree {
 private:
     std::unique_ptr<Node> root;
 
+public:
+    AnimalTree() {
+        resetToInitialState();
+    }
+
     /**
-     * @brief creates the question tree used in the game
-     * uses the initialized root node to create the initial tree with one question, and two possible guesses based on the response
-     * This is used on the first launch of the program, or when the memory is reset to the initial state
+     * @brief is utilized with a clean root node to build the initial version of the tree for use in the game
+     * This function creates the unique state by re-assigning the root of the tree to a new unique pointer
+     * If there was a pre-existing question tree in use by the game, re-assigning the root of the tree will cause the old tree to no longer be owned by the instance of the AnimalGame class, marking it for garbage collection
+     * This function will then create the initial tree
      */
     void resetToInitialState() {
         root = std::make_unique<Node>("Is your animal warm or cold blooded?");
@@ -73,8 +83,46 @@ private:
         root->no = std::make_unique<Node>(std::make_unique<DynamicAnimal>("Snake"));
     }
     /**
-     * @brief traverses the question tree based on prompts provided by the user until it reaches a leaf node
-     * at which point the game will guess the user's animal
+     * @brief public method to allow access to the private root field
+     * The root field, pointing to the root node of the question tree, is private
+     * This getter method allows the AnimalGame to access the root node of the question tree, essential to causing the game to operate correctly
+     */
+    Node* getRoot() const {
+        return root.get();
+    }
+    /**
+     * @brief traverses the question tree to collect all animals currently in memory
+     * This creates a full list of animals and works with the AnimalGame.listAnimals() function to display them to the user
+     */
+    void collectAnimals(const Node* current, std::vector<std::string>& animals) const {
+        if (!current) return;
+        if (current->isLeaf()) {
+            animals.push_back(current->animal->getName());
+        } else {
+            collectAnimals(current->yes.get(), animals);
+            collectAnimals(current->no.get(), animals);
+        }
+    }
+};
+
+/**
+ * @class AnimalGame
+ * @brief class that controls actual in-game operations
+ * The class, upon initialization, initializes an instance of the AnimalTree class, and uses it to run the game
+ * This class handles the logic to traverse the tree and attempt to guess the users animal
+ * It also handles the logic to learn new animals and install them into the question tree (along with new questions)
+ * It also displays the post-game menu, as well as 
+ */
+class AnimalGame {
+private:
+    AnimalTree tree;
+    /**
+     * @brief function to control inner-game logic
+     * This class uses the tree instance of the AnimalTree class to run game logic
+     * The user traverses the tree based on their answers until a leaf node is reached
+     * At this point, the game is ready to guess their animal
+     * If the guess is correct, the game is over and the user is returned to the post-game menu
+     * If the guess is incorrect, the user is prompted for a question to add to a new node in the tree (making the node the game ended on a non-leaf node for future playthroughs), along with a new animal learned by the game
      */
     void askQuestions(Node* current) {
         while (!current->isLeaf()) {
@@ -102,12 +150,11 @@ private:
             std::cout << "Please answer 'yes' or 'no'.\n";
         }
     }
-
     /**
-     * @brief adds a new question to the tree and animal to the game based on user outputs
-     * This function is called by the askQuestions function after the user wins the game
-     * It asks the user for their animal, as well as a question that can be used to identify it
-     * That question with the associated answer is added to the question tree, and will be accessible if the game is played again
+     * @brief function to add new animals to the existing question tree
+     * This function is called by the askQuestions function
+     * After an unsuccessful guess, the user is prompted by this function for the name of their animal, as well as a question that would distinguish it at this point in the tree
+     * Both of these values are added to a new node on the tree
      */
     void learnNewAnimal(Node* current) {
         std::cout << "I give up! What is your animal? ";
@@ -140,8 +187,12 @@ private:
     }
 
     /**
-     * @brief displays a menu after every successful round of the game, available options:
-     * start another round of the game, delete all learned animals in memory, list all currently known animals, or exit the program
+     * @brief function that runs the post-game menu
+     * After each round of the game, this menu is displayed
+     * Play Again restarts the game with the current question tree
+     * Reset memory resets the question tree to the default state (with one question and two total animals) and automatically begins the game again after
+     * List All Animals lists all animals currently in the question tree, available to be guessed by the game, then brings this menu up again
+     * Quit exits the program
      */
     void promptAfterRound() {
         std::cout << "What would you like to do next?\n";
@@ -158,11 +209,12 @@ private:
             case 1:
                 break;
             case 2:
-                reset();
+                tree.resetToInitialState();
+                std::cout << "Game has been reset to initial state.\n";
                 break;
             case 3:
                 listAnimals();
-                promptAfterRound(); // Re-prompt after listing
+                promptAfterRound(); 
                 break;
             case 4:
                 std::exit(0);
@@ -171,60 +223,37 @@ private:
                 promptAfterRound();
         }
     }
-    /**
-     * @brief traverses the question tree to collect all animals currently in memory
-     * This is used in conjunction with the listAnimals function to create a full list of animals and memory and display
-     */
-    void collectAnimals(const Node* current, std::vector<std::string>& animals) const {
-        if (!current) return;
-        if (current->isLeaf()) {
-            animals.push_back(current->animal->getName());
-        } else {
-            collectAnimals(current->yes.get(), animals);
-            collectAnimals(current->no.get(), animals);
-        }
-    }
 
-public:
-    AnimalGame() {
-        resetToInitialState();
-    }
     /**
-     * @brief initializes the game
-     * This public method initializes the question tree, and starts the question loop
-     */
-    void play() {
-        std::cout << "Welcome to The Animal Game!\n";
-
-        while (true) {
-            askQuestions(root.get());
-            promptAfterRound();
-        }
-    }
-
-    void reset() {
-        resetToInitialState();
-        std::cout << "Game has been reset to initial state.\n";
-    }
-    /**
-     * @brief function to list all animals currently stored in memory
-     * I wrote this function (and the listanimals function) while I was testing this
-     * It traverses the tree to collect all the animals in memory and print it out
-     * I initially intended it as a debug function, but I think it could be helpful to you while grading, so I've left it in
+     * @brief a function to print all animals known by the game
+     * This function works with the AnimalTree.collectAnimals() class to collect all animals in the question tree and display them
+     * I created this function to make testing my program easier (without this, you have to play the game again and traverse the tree in the same way to ensure a new animal and question were successfully added to it)
+     * The requirements in the homework do not require this, but I think keeping this in will make my homework easier to grade for exactly the same reasons adding it made it easier to test
      */
     void listAnimals() const {
         std::vector<std::string> animals;
-        collectAnimals(root.get(), animals);
+        tree.collectAnimals(tree.getRoot(), animals);
 
         std::cout << "Animals currently in memory:\n";
         for (const auto& animal : animals) {
             std::cout << "- " << animal << "\n";
         }
     }
+
+public:
+    /**
+     * @brief a function that encapsulates other helper functions of the AnimalGame class to yield the desired core gameplay loop
+     */
+    void play() {
+        std::cout << "Welcome to The Animal Game!\n";
+
+        while (true) {
+            askQuestions(tree.getRoot());
+            promptAfterRound();
+        }
+    }
 };
 
-// our main function initializes an instance of the AnimalGame class, and uses the play()
-// method to start the game. All functions of the game are contained within the class
 int main() {
     AnimalGame game;
     game.play();
