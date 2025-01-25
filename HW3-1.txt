@@ -1,0 +1,10 @@
+While defining an operator overload as either a class member function or a global function
+both have their upsides and downsides, overall, I believe defining them as a class member function is generally the wiser choice.
+
+When defined as a class member function, the operator overload has direct access to private members, making it tightly coupled with the class, This makes the overload's association with the class clear.
+The main downside of this approach is that the operator requires access to the class definition, increasing compile times.
+
+Defining the operator as a global function has its upsides and downsides as well. A global function is decoupled from the class definition, which can support increased modularity. Unfortunately, this method only has access to public
+methods of the class it operates on, and is potentially less intuitive to readers.
+
+Overall, I believe incorporating an operator overload as a class member will be a paradigm that is more universally applicable, a global overload has its uses as well.
