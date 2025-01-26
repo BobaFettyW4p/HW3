@@ -1,0 +1,20 @@
+Defining an operator overload as either a class member function or a global function
+will carry positives and negatives, and which implementation is chosen must be done with care to ensure the desired behavior is observed.
+
+
+Definiting the operator overload as a class member function is often the more intuitive choice.
+When defined as a class member function, the overload is granted direct access to class members, which simplifies implementation.
+It also tightly couples the overload with the class, which also makes your source code easier for the reader to understand.
+However, there are also downsides. Defining the operator in this way requires that the left-hand operand is always an instance of the class, which is not always possible.
+In the case of your previous homework feedback, ```"Hello" + myString("World)```, this example cannot be defined in this way. The left hand operand is a string literal, not an object of the myString type.
+This implementation would need to be approached in a different way.
+
+An alternative to defining the operator overload as a class member function is to define it as an independant global function.
+A global function's ability to handle instances where the left-hand operand is not a class member makes it a more versatile choice when this type of operation is needed.
+Defining it as a global function also leads to greater modularity, enabling the overload to be utilized anywhere by multiple different classes if needed.
+The biggest downside of this design pattern is that the operator overload will only have access to public class members, which will need to be accomodated (perhaps by defining public getter methods to access private class elements)
+
+Defining an operator overload as either a class member of global function both carry their own pros and cons.
+While defining the overload as a class member carries certain benefits, it also provide very real limitations that prevent it from being recommended as a go-to method.
+Conversely, utilizing a global function alleviates many of the limitations class methods face, with its own limitations being easily alleviated through careful design decisions (such as the addition of a public getter method to retreive private elements).
+Overall, while defining operator overloads as class member functions may make sense in some scenarios, defining them as global functions is more versatile.  
